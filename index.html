@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Empires of the Indian Subcontinent</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0e0c09;
+    --surface:   #17140e;
+    --border:    #3a3020;
+    --gold:      #c9a84c;
+    --gold-dim:  #7a6128;
+    --text:      #e8dfc8;
+    --text-muted:#8a7d60;
+    --panel-w:   340px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'EB Garamond', Georgia, serif;
+    overflow: hidden;
+  }
+
+  /* ─── Layout ─── */
+  #shell {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #panel {
+    width: var(--panel-w);
+    min-width: var(--panel-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  #map-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  #map {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ─── Panel Header ─── */
+  #panel-header {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #panel-header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+
+  #panel-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* ─── Year Display ─── */
+  #year-block {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #year-big {
+    font-family: 'Cinzel', serif;
+    font-size: 36px;
+    font-weight: 400;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: 0.04em;
+  }
+
+  #era-name {
+    font-size: 12px;
+    color: var(--gold-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* ─── Slider ─── */
+  #slider-block {
+    padding: 16px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #timeline {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    position: relative;
+  }
+
+  #timeline::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--gold-dim);
+  }
+
+  #timeline::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+
+  #tick-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  #tick-labels span {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'Cinzel', serif;
+  }
+
+  /* ─── Play Controls ─── */
+  #controls {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.06em;
+  }
+
+  .ctrl-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+  }
+
+  .ctrl-btn.active {
+    background: var(--gold-dim);
+    border-color: var(--gold-dim);
+    color: var(--text);
+  }
+
+  #speed-label {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ─── Empire List ─── */
+  #empire-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+
+  #empire-scroll::-webkit-scrollbar { width: 4px; }
+  #empire-scroll::-webkit-scrollbar-track { background: transparent; }
+  #empire-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0 24px 8px;
+    font-family: 'Cinzel', serif;
+  }
+
+  .empire-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border-left: 3px solid transparent;
+  }
+
+  .empire-item:hover {
+    background: rgba(201,168,76,0.05);
+  }
+
+  .empire-item.active {
+    background: rgba(201,168,76,0.08);
+    border-left-color: var(--gold-dim);
+  }
+
+  .empire-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .empire-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .empire-dates {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 1px;
+  }
+
+  .empire-item.inactive .empire-name { color: var(--text-muted); }
+  .empire-item.inactive .empire-dot { opacity: 0.3; }
+
+  /* ─── Info Panel overlay ─── */
+  #info-card {
+    position: absolute;
+    bottom: 28px;
+    right: 24px;
+    width: 300px;
+    background: rgba(14,12,9,0.92);
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+    z-index: 500;
+    backdrop-filter: blur(8px);
+    display: none;
+    animation: fadeUp 0.2s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  #info-card h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    margin-bottom: 6px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+  }
+
+  #info-card .dates {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+
+  #info-card p {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+
+  #info-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  #info-close:hover { color: var(--text); }
+
+  /* ─── Map attribution override ─── */
+  .leaflet-control-attribution {
+    background: rgba(14,12,9,0.7) !important;
+    color: #5a5040 !important;
+    font-size: 10px !important;
+  }
+
+  .leaflet-control-attribution a { color: #7a6840 !important; }
+  .leaflet-control-zoom a {
+    background: var(--surface) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border) !important;
+  }
+  .leaflet-control-zoom a:hover {
+    background: var(--border) !important;
+    color: var(--gold) !important;
+  }
+
+  /* ─── Empty state ─── */
+  #no-empires {
+    padding: 16px 24px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+    display: none;
+  }
+
+  /* ─── Mobile tweaks ─── */
+  @media (max-width: 640px) {
+    #panel {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      width: 100%;
+      height: 52%;
+      border-right: none;
+      border-top: 1px solid var(--border);
+      z-index: 20;
+    }
+    #map-wrap { height: 48%; }
+    #shell { flex-direction: column; }
+    #info-card { right: 8px; bottom: 54%; width: calc(100% - 16px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="shell">
+  <div id="panel">
+    <div id="panel-header">
+      <h1>Empires of India</h1>
+      <p>600 BCE – 1947 CE</p>
+    </div>
+
+    <div id="year-block">
+      <div id="year-big">300 BCE</div>
+      <div id="era-name">Early Classical Period</div>
+    </div>
+
+    <div id="slider-block">
+      <input type="range" id="timeline" min="-600" max="1947" value="-300" step="5">
+      <div id="tick-labels">
+        <span>600 BCE</span>
+        <span>1 CE</span>
+        <span>600</span>
+        <span>1200</span>
+        <span>1947</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="btn-play">▶ Play</button>
+      <button class="ctrl-btn" id="btn-reset">Reset</button>
+      <span id="speed-label">
+        Speed:
+        <select id="speed-select" style="background:transparent;border:none;color:var(--text-muted);font-family:inherit;font-size:11px;cursor:pointer;">
+          <option value="120">Slow</option>
+          <option value="60" selected>Normal</option>
+          <option value="25">Fast</option>
+        </select>
+      </span>
+    </div>
+
+    <div id="empire-list-section">
+      <div class="section-label">Active Polities</div>
+      <div id="no-empires">No recorded major empire this period.</div>
+      <div id="empire-list"></div>
+    </div>
+
+    <div id="empire-scroll" style="display:none"></div>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="info-card">
+      <button id="info-close">×</button>
+      <h2 id="ic-name"></h2>
+      <div class="dates" id="ic-dates"></div>
+      <p id="ic-desc"></p>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// EMPIRE DATA
+// Coordinates are [lng, lat] for GeoJSON format.
+// Territories are approximate — based on scholarly
+// consensus from historical atlases. Disputed areas
+// use median scholarly estimates.
+// ─────────────────────────────────────────────
+const EMPIRES = [
+  {
+    id: "mahajanapadas",
+    name: "Mahajanapadas",
+    shortName: "Mahajanapadas",
+    start: -600, end: -345,
+    color: "#9b7fd4",
+    desc: "The sixteen great kingdoms of the Vedic period, concentrated in the Gangetic plain. These rival states — including Magadha, Kosala, and Vatsa — form the political crucible from which later pan-Indian empires emerged.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [73.5,34],[80,36],[88,27],[87,23],[84,22],[80,22],[77,22],[74,23],[72,24],[70,27],[70,30],[72,32],[73.5,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "nanda",
+    name: "Nanda Empire",
+    shortName: "Nanda",
+    start: -345, end: -322,
+    color: "#a78bfa",
+    desc: "The first dynasty to unify a large part of the Gangetic plain under a single authority. Founded by Mahapadma Nanda, it was the most powerful state in India when Alexander the Great reached the Punjab — and whose army's reluctance to cross the Beas River turned him back.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [72,34],[82,35],[90,27],[87,22],[82,20],[76,19],[72,20],[70,24],[68,28],[70,32],[72,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "maurya",
+    name: "Maurya Empire",
+    shortName: "Maurya",
+    start: -322, end: -185,
+    color: "#818cf8",
+    desc: "Founded by Chandragupta Maurya after overthrowing the Nanda dynasty, and reaching its greatest extent under Ashoka (r. 268–232 BCE). It was the first empire to unify nearly the entire subcontinent, from Kandahar to the Deccan. Ashoka's conversion to Buddhism following the bloody Kalinga War transformed both the empire's administration and the spread of the dharma across Asia.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [60,38],[72,37],[80,36],[92,28],[90,23],[85,20],[80,15],[76,8],[72,8],[68,10],[65,15],[62,20],[58,28],[56,33],[58,38],[60,38]
+        ]]
+      }
+    }
+  },
+  {
+    id: "satavahana",
+    name: "Satavahana Kingdom",
+    shortName: "Satavahana",
+    start: -230, end: 220,
+    color: "#f97316",
+    desc: "The dominant power of the Deccan for over four centuries, the Satavahanas acted as a cultural and commercial bridge between north and south India. They patronized Prakrit literature and Buddhist monuments, including the famous stupa at Amaravati.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [73,22],[80,22],[85,20],[87,17],[84,13],[80,11],[76,11],[72,12],[70,15],[69,18],[70,21],[73,22]
+        ]]
+      }
+    }
+  },
+  {
+    id: "kushan",
+    name: "Kushan Empire",
+    shortName: "Kushan",
+    start: 30, end: 375,
+    color: "#f59e0b",
+    desc: "A Central Asian dynasty of Yuezhi origin that established control over Bactria, Afghanistan, and the northwest Indian subcontinent. At its peak under Kanishka I, it controlled a crucial segment of the Silk Road, facilitating exchange between Rome, China, and India. Gandharan art — a fusion of Hellenistic and Indian styles — flourished under Kushan patronage.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [58,42],[70,40],[78,36],[80,30],[76,25],[72,24],[66,25],[60,28],[55,32],[54,38],[56,42],[58,42]
+        ]]
+      }
+    }
+  },
+  {
+    id: "gupta",
+    name: "Gupta Empire",
+    shortName: "Gupta",
+    start: 320, end: 550,
+    color: "#34d399",
+    desc: "Conventionally regarded as India's Classical Golden Age, the Gupta period (roughly 320–550 CE) saw extraordinary advances in mathematics (Aryabhata, the concept of zero), astronomy, literature (Kalidasa), and temple architecture. Founded by Chandragupta I, the empire at its height covered most of northern and central India.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [68,34],[82,35],[90,26],[87,22],[82,19],[76,18],[70,18],[66,20],[64,24],[64,28],[66,32],[68,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "vakatakas",
+    name: "Vakataka Dynasty",
+    shortName: "Vakataka",
+    start: 250, end: 500,
+    color: "#fb923c",
+    desc: "The Vakatakas ruled central India as contemporaries and allies of the Guptas. They are particularly noted for their patronage of the Ajanta Caves, whose magnificent Buddhist frescoes were executed under their rule.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [74,22],[80,23],[84,20],[83,16],[78,14],[74,15],[71,17],[70,20],[72,22],[74,22]
+        ]]
+      }
+    }
+  },
+  {
+    id: "pallava",
+    name: "Pallava Dynasty",
+    shortName: "Pallava",
+    start: 275, end: 897,
+    color: "#e879f9",
+    desc: "The Pallavas of Kanchipuram were the dominant power of the Tamil-speaking south for much of the first millennium. They were great patrons of Dravidian temple architecture — the Shore Temple at Mahabalipuram is their most celebrated legacy — and their influence extended to Southeast Asia via maritime trade.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [76,14],[81,14],[82,11],[80,8],[78,8],[76,9],[74,11],[75,13],[76,14]
+        ]]
+      }
+    }
+  },
+  {
+    id: "harsha",
+    name: "Harsha's Empire",
+    shortName: "Harsha",
+    start: 606, end: 647,
+    color: "#2dd4bf",
+    desc: "Harsha of Kanauj was the last great Hindu emperor of northern India. His court attracted the Chinese pilgrim Xuanzang, whose memoir is a primary source for the period. Harsha was himself a playwright and a generous patron of Buddhism and Brahmanism. After his death without an heir, the empire fragmented.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [68,34],[80,35],[88,28],[85,22],[78,19],[72,20],[67,22],[64,26],[64,30],[66,34],[68,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "chalukya_badami",
+    name: "Chalukya of Badami",
+    shortName: "Chalukya (Badami)",
+    start: 543, end: 757,
+    color: "#f472b6",
+    desc: "The Chalukyas of Badami (Vatapi) were the first dynasty to truly unite the Deccan into a major power. They checked both the Pallavas in the south and Harsha in the north, and their cave temples at Badami and Pattadakal represent a pivotal moment in Indian temple architecture.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [72,20],[80,22],[84,18],[82,14],[78,12],[74,12],[70,14],[69,17],[70,20],[72,20]
+        ]]
+      }
+    }
+  },
+  {
+    id: "rashtrakuta",
+    name: "Rashtrakuta Dynasty",
+    shortName: "Rashtrakuta",
+    start: 753, end: 982,
+    color: "#60a5fa",
+    desc: "The Rashtrakutas rose from subordinates of the Chalukyas to become the paramount power of the Deccan. At their peak they fought campaigns deep into northern India and received embassies from the Abbasid Caliphate. The Kailasa Temple at Ellora — carved from a single rock — was built under their patronage.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [70,22],[80,23],[86,20],[86,15],[80,11],[74,11],[70,13],[68,17],[68,20],[70,22]
+        ]]
+      }
+    }
+  },
+  {
+    id: "pala",
+    name: "Pala Empire",
+    shortName: "Pala",
+    start: 750, end: 1161,
+    color: "#a3e635",
+    desc: "The Palas of Bengal were the last major Buddhist dynasty of India, ruling for four centuries from their capital at Gaur. They founded and patronized Vikramashila and Odantapuri universities, which attracted scholars from Tibet, China, and Southeast Asia.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [82,28],[92,27],[92,22],[88,20],[84,20],[80,22],[80,26],[82,28]
+        ]]
+      }
+    }
+  },
+  {
+    id: "pratihara",
+    name: "Gurjara-Pratihara",
+    shortName: "Pratihara",
+    start: 730, end: 1036,
+    color: "#fbbf24",
+    desc: "The Gurjara-Pratiharas were the dominant power of northern India for over two centuries, repeatedly repelling Arab incursions from Sindh. Arab geographers acknowledged them as one of the greatest kings of India. Their eventual decline under pressure from the Rashtrakutas opened northern India to later Turkic invasions.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [68,30],[80,32],[86,27],[82,22],[76,20],[70,20],[66,22],[64,26],[64,30],[68,30]
+        ]]
+      }
+    }
+  },
+  {
+    id: "chola",
+    name: "Chola Empire",
+    shortName: "Chola",
+    start: 848, end: 1279,
+    color: "#f87171",
+    desc: "The imperial Cholas were among the greatest maritime powers of the pre-modern world. From their Tamil heartland they launched naval campaigns to Sri Lanka, the Maldives, and — in a remarkable expedition in 1025 CE — sacked the Srivijaya kingdom in Sumatra and the Malay Peninsula. The Brihadeeswarar Temple at Thanjavur, built by Rajaraja I, remains one of the great monuments of world architecture.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [74,15],[80,15],[83,13],[82,8],[79,7],[76,7],[74,8],[72,10],[72,13],[74,15]
+        ]]
+      }
+    }
+  },
+  {
+    id: "ghaznavid",
+    name: "Ghaznavid Sultanate",
+    shortName: "Ghaznavid",
+    start: 977, end: 1186,
+    color: "#94a3b8",
+    desc: "Mahmud of Ghazni conducted seventeen raids into the subcontinent, most famously sacking the temple of Somnath in 1025 CE. While largely extractive rather than territorial, the Ghaznavids established the first sustained Turkic Muslim presence in the Punjab, presaging the Delhi Sultanate.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [60,38],[70,38],[76,34],[76,28],[72,26],[66,26],[60,28],[56,32],[56,36],[60,38]
+        ]]
+      }
+    }
+  },
+  {
+    id: "delhi_sultanate",
+    name: "Delhi Sultanate",
+    shortName: "Delhi Sultanate",
+    start: 1206, end: 1526,
+    color: "#86efac",
+    desc: "Five successive Turkic and Afghan dynasties — Mamluk, Khilji, Tughluq, Sayyid, and Lodi — ruled from Delhi for over three centuries. At its greatest extent under Alauddin Khilji, the Sultanate reached the far south. It was the Delhi Sultanate's armies that repelled the Mongol invasions which devastated much of the rest of Eurasia.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [64,34],[80,35],[88,26],[85,20],[80,16],[74,14],[68,14],[64,18],[60,22],[60,28],[62,32],[64,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "vijayanagara",
+    name: "Vijayanagara Empire",
+    shortName: "Vijayanagara",
+    start: 1336, end: 1646,
+    color: "#fca5a5",
+    desc: "The last great Hindu empire of south India, Vijayanagara (City of Victory) was founded in 1336 as a bulwark against the expanding Deccan Sultanates. Its capital was one of the largest cities in the world in the 15th century. Following the catastrophic defeat at Talikota (1565), the empire fragmented, but successor kingdoms persisted well into the 17th century.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [73,18],[80,19],[85,16],[84,12],[80,9],[76,8],[72,9],[70,12],[69,15],[70,18],[73,18]
+        ]]
+      }
+    }
+  },
+  {
+    id: "bahmani",
+    name: "Bahmani Sultanate",
+    shortName: "Bahmani",
+    start: 1347, end: 1527,
+    color: "#7dd3fc",
+    desc: "The first independent Muslim kingdom of the Deccan, the Bahmani Sultanate was a constant rival of Vijayanagara. It eventually fragmented into the five Deccan Sultanates — Bijapur, Golconda, Ahmadnagar, Bidar, and Berar — whose combined forces defeated Vijayanagara at Talikota.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [72,20],[80,21],[85,18],[84,14],[80,12],[74,12],[70,14],[69,17],[70,20],[72,20]
+        ]]
+      }
+    }
+  },
+  {
+    id: "mughal",
+    name: "Mughal Empire",
+    shortName: "Mughal",
+    start: 1526, end: 1707,
+    color: "#c084fc",
+    desc: "Founded by Babur after his victory at the First Battle of Panipat (1526), the Mughal Empire became one of the largest empires in world history. Under Akbar, it developed a sophisticated administrative system and a policy of religious pluralism. The reign of Shah Jahan produced the Taj Mahal. Under Aurangzeb it reached its greatest territorial extent before beginning a long decline.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [58,38],[74,38],[82,36],[92,26],[90,22],[85,18],[80,14],[76,8],[72,8],[68,10],[64,14],[60,20],[56,28],[54,34],[56,38],[58,38]
+        ]]
+      }
+    }
+  },
+  {
+    id: "maratha",
+    name: "Maratha Confederacy",
+    shortName: "Maratha",
+    start: 1674, end: 1818,
+    color: "#fb923c",
+    desc: "Founded by Chhatrapati Shivaji Maharaj, the Maratha state grew from guerrilla resistance against the Mughal Empire into a vast confederacy. By the mid-18th century the Marathas were the pre-eminent power in India, controlling territory from the Punjab to Thanjavur. Three Anglo-Maratha Wars ultimately resulted in British annexation.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [68,28],[80,30],[88,24],[86,18],[80,14],[74,12],[68,14],[64,18],[62,22],[64,26],[68,28]
+        ]]
+      }
+    }
+  },
+  {
+    id: "sikh",
+    name: "Sikh Empire",
+    shortName: "Sikh Empire",
+    start: 1799, end: 1849,
+    color: "#fde68a",
+    desc: "Founded by Maharaja Ranjit Singh, the Sikh Empire was the last independent power of northern India. It controlled the Punjab, Kashmir, and the North-West Frontier, and maintained a modernised army trained by European officers. It was dissolved following the two Anglo-Sikh Wars.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [66,38],[74,38],[78,34],[76,28],[72,26],[66,26],[62,28],[60,32],[62,36],[66,38]
+        ]]
+      }
+    }
+  },
+  {
+    id: "mysore",
+    name: "Kingdom of Mysore",
+    shortName: "Mysore",
+    start: 1399, end: 1947,
+    color: "#fdba74",
+    desc: "Under Hyder Ali and Tipu Sultan in the late 18th century, Mysore was the most formidable opponent of British expansion in south India. After Tipu Sultan's death at the siege of Seringapatam (1799), the kingdom was restored to the Wadiyar dynasty as a British princely state, eventually acceding to the Indian Union in 1947.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [74,16],[79,17],[81,14],[80,11],[76,10],[73,11],[72,13],[73,15],[74,16]
+        ]]
+      }
+    }
+  },
+  {
+    id: "hyderabad",
+    name: "Nizam's Hyderabad",
+    shortName: "Hyderabad",
+    start: 1724, end: 1948,
+    color: "#6ee7b7",
+    desc: "Founded by Asaf Jah I after the decline of Mughal power, Hyderabad was the largest and wealthiest of the Indian princely states. The Nizams were among the richest individuals in the world during the 19th and early 20th centuries. The state was incorporated into the Indian Union through a police action (Operation Polo) in 1948.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [74,20],[82,21],[84,17],[80,14],[76,14],[72,15],[71,17],[72,20],[74,20]
+        ]]
+      }
+    }
+  },
+  {
+    id: "eic",
+    name: "East India Company",
+    shortName: "East India Co.",
+    start: 1757, end: 1858,
+    color: "#94a3b8",
+    desc: "Following the Battle of Plassey (1757), the British East India Company transitioned from a trading enterprise to a territorial power. Through a combination of military conquest, subsidiary alliances, and the doctrine of lapse, it progressively absorbed most of the subcontinent over the following century, until the 1857 uprising prompted the Crown to assume direct rule.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [66,34],[82,35],[90,24],[87,18],[82,13],[78,8],[74,8],[68,10],[64,14],[62,20],[64,28],[66,34]
+        ]]
+      }
+    }
+  },
+  {
+    id: "british_raj",
+    name: "British Raj",
+    shortName: "British Raj",
+    start: 1858, end: 1947,
+    color: "#cbd5e1",
+    desc: "After the suppression of the 1857 uprising, the British Crown assumed direct sovereignty over India. The Raj controlled the subcontinent through a combination of directly administered provinces and nominally independent princely states. It ended with Indian independence and Partition on 14–15 August 1947.",
+    territory: {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [60,38],[76,38],[82,36],[92,26],[90,22],[85,18],[80,14],[76,8],[72,8],[68,10],[64,14],[60,20],[56,28],[54,34],[56,38],[60,38]
+        ]]
+      }
+    }
+  }
+];
+
+// ─────────────────────────────────────────────
+// ERA LABELS
+// ─────────────────────────────────────────────
+function getEra(year) {
+  if (year < -500) return "Vedic Period";
+  if (year < -300) return "Late Vedic / Mahajanapadas";
+  if (year < 0)    return "Early Classical Period";
+  if (year < 320)  return "Post-Mauryan Period";
+  if (year < 550)  return "Classical / Gupta Period";
+  if (year < 750)  return "Early Medieval Period";
+  if (year < 1000) return "Tripartite Struggle Era";
+  if (year < 1200) return "Rajput & Chola Period";
+  if (year < 1400) return "Delhi Sultanate Period";
+  if (year < 1526) return "Late Sultanate Period";
+  if (year < 1600) return "Early Mughal Period";
+  if (year < 1700) return "High Mughal Period";
+  if (year < 1800) return "Mughal Decline / Maratha Ascent";
+  if (year < 1858) return "Company Rule";
+  if (year < 1947) return "British Raj";
+  return "Independence";
+}
+
+function formatYear(y) {
+  return y < 0 ? Math.abs(y) + " BCE" : y + " CE";
+}
+
+// ─────────────────────────────────────────────
+// MAP INIT
+// ─────────────────────────────────────────────
+const map = L.map('map', {
+  center: [22, 78],
+  zoom: 4,
+  zoomControl: true,
+  attributionControl: true
+});
+
+// Dark map tiles — CartoDB Dark Matter
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 10,
+  minZoom: 3
+}).addTo(map);
+
+// Label layer on top
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd',
+  maxZoom: 10,
+  minZoom: 3,
+  pane: 'shadowPane'
+}).addTo(map);
+
+// ─────────────────────────────────────────────
+// BUILD LEAFLET LAYERS
+// ─────────────────────────────────────────────
+const layers = {};
+
+EMPIRES.forEach(empire => {
+  const layer = L.geoJSON(empire.territory, {
+    style: {
+      fillColor: empire.color,
+      fillOpacity: 0.38,
+      color: empire.color,
+      weight: 1.5,
+      opacity: 0.7
+    }
+  });
+
+  layer.on('click', () => showInfoCard(empire));
+  layer.on('mouseover', function() {
+    this.setStyle({ fillOpacity: 0.55, weight: 2.5 });
+  });
+  layer.on('mouseout', function() {
+    this.setStyle({ fillOpacity: 0.38, weight: 1.5 });
+  });
+
+  layers[empire.id] = layer;
+});
+
+// ─────────────────────────────────────────────
+// INFO CARD
+// ─────────────────────────────────────────────
+function showInfoCard(empire) {
+  document.getElementById('ic-name').textContent = empire.name;
+  document.getElementById('ic-dates').textContent =
+    formatYear(empire.start) + ' – ' + formatYear(empire.end);
+  document.getElementById('ic-desc').textContent = empire.desc;
+  document.getElementById('info-card').style.display = 'block';
+}
+
+document.getElementById('info-close').addEventListener('click', () => {
+  document.getElementById('info-card').style.display = 'none';
+});
+
+// ─────────────────────────────────────────────
+// UPDATE FUNCTION
+// ─────────────────────────────────────────────
+function update(year) {
+  const active = [];
+  const inactive = [];
+
+  EMPIRES.forEach(empire => {
+    const isActive = year >= empire.start && year <= empire.end;
+    const layer = layers[empire.id];
+
+    if (isActive) {
+      if (!map.hasLayer(layer)) layer.addTo(map);
+      active.push(empire);
+    } else {
+      if (map.hasLayer(layer)) map.removeLayer(layer);
+      inactive.push(empire);
+    }
+  });
+
+  // Year display
+  document.getElementById('year-big').textContent = formatYear(year);
+  document.getElementById('era-name').textContent = getEra(year);
+
+  // Sidebar list
+  const listEl = document.getElementById('empire-list');
+  const noEl = document.getElementById('no-empires');
+  listEl.innerHTML = '';
+
+  if (active.length === 0) {
+    noEl.style.display = 'block';
+  } else {
+    noEl.style.display = 'none';
+    active.forEach(e => {
+      const item = document.createElement('div');
+      item.className = 'empire-item active';
+      item.innerHTML = `
+        <div class="empire-dot" style="background:${e.color}"></div>
+        <div>
+          <div class="empire-name">${e.name}</div>
+          <div class="empire-dates">${formatYear(e.start)} – ${formatYear(e.end)}</div>
+        </div>`;
+      item.addEventListener('click', () => showInfoCard(e));
+      listEl.appendChild(item);
+    });
+  }
+
+  // Progress fill on slider
+  const slider = document.getElementById('timeline');
+  const min = parseInt(slider.min);
+  const max = parseInt(slider.max);
+  const pct = ((year - min) / (max - min)) * 100;
+  slider.style.background = `linear-gradient(to right, #c9a84c ${pct}%, #3a3020 ${pct}%)`;
+}
+
+// ─────────────────────────────────────────────
+// SLIDER
+// ─────────────────────────────────────────────
+const slider = document.getElementById('timeline');
+slider.addEventListener('input', () => {
+  update(parseInt(slider.value));
+});
+
+// ─────────────────────────────────────────────
+// PLAY / STOP
+// ─────────────────────────────────────────────
+let playing = false;
+let interval = null;
+
+function getSpeed() {
+  return parseInt(document.getElementById('speed-select').value);
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (playing) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  stopPlay();
+  slider.value = -600;
+  update(-600);
+});
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btn-play').textContent = '◼ Stop';
+  document.getElementById('btn-play').classList.add('active');
+  let val = parseInt(slider.value);
+  if (val >= 1947) val = -600;
+  interval = setInterval(() => {
+    val += 5;
+    if (val > 1947) {
+      stopPlay();
+      return;
+    }
+    slider.value = val;
+    update(val);
+  }, getSpeed());
+}
+
+function stopPlay() {
+  playing = false;
+  clearInterval(interval);
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').classList.remove('active');
+}
+
+// Restart at new speed if already playing
+document.getElementById('speed-select').addEventListener('change', () => {
+  if (playing) {
+    stopPlay();
+    startPlay();
+  }
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+update(-300);
+</script>
+</body>
+</html>
